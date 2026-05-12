@@ -51,6 +51,63 @@ def validate_positive_int(prompt: str, min_val: int = 1, max_val: int = 100_000)
         except ValueError:
             print(f"Błąd: wartość musi być liczbą całkowitą z zakresu [{min_val}, {max_val}].")
 
+def find_motif(sequence: str, motif: str) -> list[int]:
+    """Wyszukuje motyw w sekwencji i zwraca listę pozycji (indeksowane od 1)."""
+    positions = []
+    start = 0
+    while True:
+        start = sequence.find(motif, start)
+        if start == -1:
+            break
+        positions.append(start + 1)
+        start += 1
+    return positions
+
+def get_complementary(sequence: str) -> str:
+    """Zwraca nić komplementarną DNA."""
+    mapping = str.maketrans('ACGT', 'TGCA')
+    return sequence.translate(mapping)
+
+def get_reverse_complementary(sequence: str) -> str:
+    """Zwraca nić odwrotnie komplementarną DNA."""
+    return get_complementary(sequence)[::-1]
+
+def transcribe(sequence: str) -> str:
+    """Transkrypcja in silico: zamiana DNA na mRNA (T -> U)."""
+    return sequence.replace('T', 'U')
+
+def translate(sequence: str) -> str:
+    """Translacja sekwencji DNA na białko z użyciem standardowej tabeli kodonów."""
+    codon_table = {
+        'ATA':'I', 'ATC':'I', 'ATT':'I', 'ATG':'M', 'ACA':'T', 'ACC':'T', 'ACG':'T', 'ACT':'T',
+        'AAC':'N', 'AAT':'N', 'AAA':'K', 'AAG':'K', 'AGC':'S', 'AGT':'S', 'AGA':'R', 'AGG':'R',
+        'CTA':'L', 'CTC':'L', 'CTG':'L', 'CTT':'L', 'CCA':'P', 'CCC':'P', 'CCG':'P', 'CCT':'P',
+        'CAC':'H', 'CAT':'H', 'CAA':'Q', 'CAG':'Q', 'CGA':'R', 'CGC':'R', 'CGG':'R', 'CGT':'R',
+        'GTA':'V', 'GTC':'V', 'GTG':'V', 'GTT':'V', 'GCA':'A', 'GCC':'A', 'GCG':'A', 'GCT':'A',
+        'GAC':'D', 'GAT':'D', 'GAA':'E', 'GAG':'E', 'GGA':'G', 'GGC':'G', 'GGG':'G', 'GGT':'G',
+        'TCA':'S', 'TCC':'S', 'TCG':'S', 'TCT':'S', 'TTC':'F', 'TTT':'F', 'TTA':'L', 'TTG':'L',
+        'TAC':'Y', 'TAT':'Y', 'TAA':'*', 'TAG':'*', 'TGC':'C', 'TGT':'C', 'TGA':'*', 'TGG':'W',
+    }
+    protein = []
+    for i in range(0, len(sequence) - (len(sequence) % 3), 3):
+        codon = sequence[i:i+3]
+        protein.append(codon_table.get(codon, '?'))
+    return "".join(protein)
+
+def validate_motif(prompt: str) -> str:
+    """Pobiera od użytkownika motyw DNA i waliduje jego poprawność."""
+    valid_nucleotides = set("ACGT")
+    while True:
+        motif = input(prompt).strip().upper()
+        
+        if not motif:
+            print("Błąd: Motyw nie może być pusty.")
+            continue
+            
+        if set(motif).issubset(valid_nucleotides):
+            return motif
+            
+        print("Błąd: Motyw może zawierać wyłącznie znaki A, C, G, T. Przykład: ATG")
 
 def main():
     length = validate_positive_int("Podaj długość sekwencji: ")
@@ -70,6 +127,19 @@ def main():
     final_sequence = insert_name(base_sequence, name)
     fasta_content = format_fasta(seq_id, description, final_sequence)
     
+    motif = validate_motif("Podaj motyw do wyszukania (tylko A, C, G, T): ")
+    motif_positions = find_motif(base_sequence, motif)
+    
+    comp_seq = get_complementary(base_sequence)
+    rev_comp_seq = get_reverse_complementary(base_sequence)
+    mrna_seq = transcribe(base_sequence)
+    protein_seq = translate(base_sequence)
+    
+    fasta_content += "\n" + format_fasta(seq_id + "_comp", "Nici komplementarna", comp_seq)
+    fasta_content += "\n" + format_fasta(seq_id + "_revcomp", "Nici odwrotnie komplementarna", rev_comp_seq)
+    fasta_content += "\n" + format_fasta(seq_id + "_mRNA", "Transkrypt mRNA", mrna_seq)
+    fasta_content += "\n" + format_fasta(seq_id + "_protein", "Sekwencja aminokwasowa", protein_seq)
+    
     filename = f"{seq_id}.fasta"
     with open(filename, "w", encoding="utf-8") as f:
         f.write(fasta_content)
@@ -82,5 +152,8 @@ def main():
     print(f"T: {stats['T']:.2f}%")
     print(f"GC-content: {stats['GC']:.2f}%\n")
     
+    print("--- Dodatkowe informacje ---")
+    print(f"Znaleziono motyw '{motif}' na pozycjach: {motif_positions}")
+
 if __name__ == "__main__":
     main()
